@@ -1,76 +1,110 @@
-#include <stdio.h>  
-int main(){  
+#include <stdio.h>
+#include <stdbool.h>
 
-  
-    int n, m;  
-    n = 5;                         
-    m = 3;                         
-    int alloc[5][3] = {{0, 1, 0},    
-                       {2, 0, 0},   
-                       {3, 0, 2},   
-                       {2, 1, 1},    
-                       {0, 0, 2}};   
-  
-    int max[5][3] = {{7, 5, 3},  // P0 // MAX Matrix  
-                     {3, 2, 2},  // P1  
-                     {9, 0, 2},  // P2  
-                     {2, 2, 2},  // P3  
-                     {4, 3, 3}}; // P4  
-  
+int main() {
+    int n = 5; // Number of processes
+    int m = 3; // Number of resource types
+    // Allocation Matrix
+    int alloc[5][3] = {
+        {0, 1, 0},
+        {2, 0, 0},
+        {3, 0, 2},
+        {2, 1, 1},
+        {0, 0, 2}
+    };
+
+    // Maximum Matrix
+    int max[5][3] = {
+        {7, 5, 3},
+        {3, 2, 2},
+        {9, 0, 2},
+        {2, 2, 2},
+        {4, 3, 3}
+    };
+
+    // Available Resources
     int avail[3] = {3, 3, 2};
-    int f[n], ans[n], ind = 0;  
-    for (int k = 0; k < n; k++)  
-    {  
-        f[k] = 0;  
-    }  
-    int need[n][m];  
-    for (int i = 0; i < n; i++)  
-    {  
-        for (int j = 0; j < m; j++)  
-            need[i][j] = max[i][j] - alloc[i][j];  
-    }  
-    for (int k = 0; k < 5; k++)  
-    {  
-        for (int i = 0; i < n; i++)  
-        {  
-            if (f[i] == 0)  
-            {  
-                int flag = 0;  
-                for (int j = 0; j < m; j++)  
-                {  
-                    if (need[i][j] > avail[j])  
-                    {  
-                        flag = 1;  
-                        break;  
-                    }  
-                }  
-                if (flag == 0)  
-                {  
-                    ans[ind++] = i;  
-                    for (int y = 0; y < m; y++)  
-                        avail[y] += alloc[i][y];  
-                    f[i] = 1;  
-                }  
-            }  
-        }  
-    }
-    int flag = 1;  
-    for (int i = 0; i < n; i++)  
-    {  
-        if (f[i] == 0)  
-        {  
-            flag = 0;  
-            printf("The following system is not safe");  
-            break;  
-        }  
-    }  
-    if (flag == 1)  
-    {  
-        printf("Following is the SAFE Sequence\n");  
-        for (int i = 0; i < n - 1; i++)  
-            printf(" P%d ->", ans[i]);  
-        printf(" P%d", ans[n - 1]);  
-    }  
-    return (0);  
 
+    // Request (from process P1 in this example)
+    int req_process = 1;
+    int request[3] = {1, 0, 2};
+
+    int need[5][3], i, j, k;
+
+    // Calculate Need Matrix
+    for (i = 0; i < n; i++)
+        for (j = 0; j < m; j++)
+            need[i][j] = max[i][j] - alloc[i][j];
+
+    // Step 1: Check if request <= need
+    bool validRequest = true;
+    for (j = 0; j < m; j++) {
+        if (request[j] > need[req_process][j]) {
+            validRequest = false;
+            break;
+        }
+    }
+
+    if (!validRequest) {
+        printf("Error: Process has exceeded its maximum claim.\n");
+        return 0;
+    }
+
+    // Step 2: Check if request <= available
+    for (j = 0; j < m; j++) {
+        if (request[j] > avail[j]) {
+            printf("Resources are not available. Process P%d must wait.\n", req_process);
+            return 0;
+        }
+    }
+
+    // Step 3: Pretend to allocate the resources
+    for (j = 0; j < m; j++) {
+        avail[j] -= request[j];
+        alloc[req_process][j] += request[j];
+        need[req_process][j] -= request[j];
+    }
+
+    // Step 4: Safety Check using Banker's Algorithm
+    int finish[5] = {0}, safeSequence[5];
+    int count = 0;
+    int temp_avail[3];
+
+    for (j = 0; j < m; j++)
+        temp_avail[j] = avail[j];
+
+    while (count < n) {
+        bool found = false;
+        for (i = 0; i < n; i++) {
+            if (!finish[i]) {
+                bool canRun = true;
+                for (j = 0; j < m; j++) {
+                    if (need[i][j] > temp_avail[j]) {
+                        canRun = false;
+                        break;
+                    }
+                }
+
+                if (canRun) {
+                    for (k = 0; k < m; k++)
+                        temp_avail[k] += alloc[i][k];
+                    safeSequence[count++] = i;
+                    finish[i] = 1;
+                    found = true;
+                }
+            }
+        }
+
+        if (!found) {
+            printf("Request cannot be granted immediately as it leads to an unsafe state.\n");
+            return 0;
+        }
+    }
+
+    printf("Request can be granted.\nSystem is in a SAFE state.\nSafe sequence is: ");
+    for (i = 0; i < n; i++)
+        printf("P%d ", safeSequence[i]);
+    printf("\n");
+
+    return 0;
 }
